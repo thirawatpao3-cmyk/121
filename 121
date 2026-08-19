@@ -1,0 +1,230 @@
+-- โหลด Services
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+
+-- ค้นหา Remotes ตามโครงสร้าง ReplicatedStorage.RE.PlayerToolEvent
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local reFolder = replicatedStorage:WaitForChild("RE", 5)
+if not reFolder then
+    warn("ไม่พบโฟลเดอร์ RE ในเกมนี้!")
+    return
+end
+
+local _reE = reFolder:WaitForChild("PlayerToolEvent", 5)
+if not _reE then
+    warn("ไม่พบรีโมท PlayerToolEvent ในเกมนี้!")
+    return
+end
+
+-- Payload & Suffix พร้อมชื่อกันดักโดยเปา
+local function _wrap()
+    return "106214564430108\n[[กันดักโดยเปา]]"
+end
+
+local suffixPayload = "%30%33%34%34%36%34%31%36%33%35%38%60%08%60%08%00%E2%80%AE%69%64%AB%F0%0F%9F%AB%9F%A4%F0%0A%7F%AB%90%F0%AB%90%F9%F0%A4%99%F0%A4%F0%A4%44%90%F0%A4%F0%A4%25%30%31%32%39%35%38%9F%08%60%08%00%E2%80%AE%69%64%AB%F0%0F%9F%AB%9F%A4%F0%0A%7F%AB%90%F0%AB%90%F9%F0%A4%99%F0%A4%F0%A4%44%90%F0%A4%F0%A4%EA%E5%69%64%AB%F0%0F%9F%AB%9F%A4%F0%0A%7F%AB%90%F0%AB%90%F9%F0%A4%99%F0%A4%F0%A4%44%90%F0%A4%F0%A4%AE%E5%69%64%AB%F0%0F%9F%AB%9F%A4%F0%0A%7F%AB%90%F0%AB%90%F9%F0%A4%99%F0%A4%F0%A4%44%90%F0%A4%F0%A4%AE%E5%69%64%AB%F0%0F%9F%AB%9F%A4%F0%0A%7F%AB%90%F0%AB%90%F9%F0%A4%99%F0%A4%F0%A4%44%90%F0%A4%F0%A4%AE%E5"
+
+local function simpleUrlEncode(str)
+    local hex = "0123456789ABCDEF"
+    local result = ""
+    for i = 1, #str do
+        local b = string.byte(str, i)
+        result = result .. "%" .. string.sub(hex, math.floor(b/16)+1, math.floor(b/16)+1) .. string.sub(hex, (b%16)+1, (b%16)+1)
+    end
+    return result
+end
+
+local function buildPayload(rawId)
+    return _wrap() .. simpleUrlEncode(rawId) .. " " .. suffixPayload
+end
+
+local function tryGetProductInfo(input)
+    local num = tonumber(input)
+    if not num then return nil, "Invalid ID" end
+    local success, info = pcall(function()
+        return MarketplaceService:GetProductInfo(num)
+    end)
+    return success and info or nil
+end
+
+local function getRainbowColor(offset)
+    local hue = (tick() * 0.8 + offset) % 1
+    return Color3.fromHSV(hue, 1, 1)
+end
+
+-- สร้างหน้าต่าง UI
+local _g = Instance.new("ScreenGui")
+_g.Name = "MusicPanel"
+_g.ResetOnSpawn = false
+_g.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+_g.Parent = player:WaitForChild("PlayerGui")
+
+local _fr = Instance.new("Frame")
+_fr.Size = UDim2.new(0, 300, 0, 210)
+_fr.Position = UDim2.new(0.5, -150, 0.5, -105)
+_fr.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+_fr.BackgroundTransparency = 0.45
+_fr.BorderSizePixel = 0
+_fr.Active = true
+_fr.Visible = true
+_fr.Parent = _g
+Instance.new("UICorner", _fr).CornerRadius = UDim.new(0, 12)
+
+local _frs = Instance.new("UIStroke", _fr)
+_frs.Thickness = 2.5
+
+local _tb = Instance.new("Frame")
+_tb.Size = UDim2.new(1, 0, 0, 44)
+_tb.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
+_tb.BackgroundTransparency = 0.3
+_tb.BorderSizePixel = 0
+_tb.Parent = _fr
+Instance.new("UICorner", _tb).CornerRadius = UDim.new(0, 12)
+
+for i = 1, 3 do
+    local dot = Instance.new("Frame", _tb)
+    dot.Size = UDim2.new(0, 8, 0, 8)
+    dot.Position = UDim2.new(0, 12 + (i-1)*14, 0.5, -4)
+    dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    dot.BorderSizePixel = 0
+    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+end
+
+local _sl = Instance.new("TextLabel")
+_sl.Size = UDim2.new(1, -24, 0, 28)
+_sl.Position = UDim2.new(0, 12, 0, 52)
+_sl.BackgroundTransparency = 1
+_sl.Text = "🎵 ค้นหาเพลงโดยใส่ไอดีที่ด้านล่าง..."
+_sl.TextColor3 = Color3.fromRGB(255, 255, 255)
+_sl.TextSize = 11
+_sl.Font = Enum.Font.Code
+_sl.TextXAlignment = Enum.TextXAlignment.Left
+_sl.Parent = _fr
+
+local _ib = Instance.new("TextBox")
+_ib.Size = UDim2.new(1, -24, 0, 34)
+_ib.Position = UDim2.new(0, 12, 0, 104)
+_ib.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+_ib.BackgroundTransparency = 0.5
+_ib.PlaceholderText = "ใส่ ID เพลง Roblox"
+_ib.PlaceholderColor3 = Color3.fromRGB(100, 100, 100)
+_ib.TextColor3 = Color3.fromRGB(255, 255, 255)
+_ib.TextSize = 13
+_ib.Font = Enum.Font.Code
+_ib.ClearTextOnFocus = false
+_ib.Parent = _fr
+Instance.new("UICorner", _ib).CornerRadius = UDim.new(0, 6)
+
+local _pb = Instance.new("TextButton")
+_pb.Size = UDim2.new(1, -24, 0, 36)
+_pb.Position = UDim2.new(0, 12, 0, 148)
+_pb.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+_pb.BackgroundTransparency = 0.5
+_pb.Text = "▶ เล่นเพลง"
+_pb.TextColor3 = Color3.fromRGB(255, 255, 255)
+_pb.TextSize = 13
+_pb.Font = Enum.Font.Code
+_pb.BorderSizePixel = 0
+_pb.Parent = _fr
+Instance.new("UICorner", _pb).CornerRadius = UDim.new(0, 8)
+
+local _cb = Instance.new("TextButton")
+_cb.Size = UDim2.new(0, 20, 0, 20)
+_cb.Position = UDim2.new(1, -28, 0, 12)
+_cb.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+_cb.BackgroundTransparency = 1
+_cb.Text = "X"
+_cb.TextColor3 = Color3.fromRGB(255, 255, 255)
+_cb.TextSize = 12
+_cb.Font = Enum.Font.SourceSansBold
+_cb.Parent = _tb
+
+local toggleBtn = Instance.new("ImageButton")
+toggleBtn.Name = "MusicToggle"
+toggleBtn.Size = UDim2.new(0, 50, 0, 50)
+toggleBtn.Position = UDim2.new(0.5, -25, 0.5, -30)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+toggleBtn.BackgroundTransparency = 0.4
+toggleBtn.Image = "rbxassetid://118237382174793"
+toggleBtn.Parent = _g
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
+
+local toggleStroke = Instance.new("UIStroke", toggleBtn)
+toggleStroke.Thickness = 3
+
+-- ระบบลากหน้าต่าง
+local _dr, _ds, _dp = false, nil, nil
+_tb.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        _dr = true; _ds = i.Position; _dp = _fr.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(i)
+    if _dr and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        local d = i.Position - _ds
+        _fr.Position = UDim2.new(_dp.X.Scale, _dp.X.Offset + d.X, _dp.Y.Scale, _dp.Y.Offset + d.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        _dr = false
+    end
+end)
+
+-- พรีวิวชื่อเพลง
+_ib:GetPropertyChangedSignal("Text"):Connect(function()
+    local raw = _ib.Text
+    if #raw > 3 then
+        _sl.Text = "⏳ กำลังโหลดชื่อเพลง..."
+        task.spawn(function()
+            local ok, info = tryGetProductInfo(raw)
+            if ok and info then
+                _sl.Text = "🎵 " .. (info.Name or "UNKNOWN")
+            else
+                _sl.Text = "❌ ไม่พบข้อมูลเพลง"
+            end
+        end)
+    else
+        _sl.Text = "🎵 ค้นหาเพลงโดยใส่ไอดีที่ด้านล่าง..."
+    end
+end)
+
+-- แอนิเมชันสีรุ้ง
+RunService.RenderStepped:Connect(function()
+    _frs.Color = getRainbowColor(0)
+    toggleStroke.Color = getRainbowColor(1)
+    _pb.TextColor3 = getRainbowColor(0.5)
+end)
+
+-- ปุ่มกดสั่งเล่นเพลง
+_pb.MouseButton1Click:Connect(function()
+    local rawId = _ib.Text:match("%d+")
+    if not rawId then return end
+
+    local payload = buildPayload(rawId)
+    _reE:FireServer(payload)
+
+    _pb.Text = "PLAYING..."
+    task.wait(1)
+    _pb.Text = "▶ เล่นเพลง"
+end)
+
+-- เปิด/ปิดหน้าต่าง
+local isOpen = true
+toggleBtn.MouseButton1Click:Connect(function()
+    isOpen = not isOpen
+    _fr.Visible = isOpen
+end)
+
+_cb.MouseButton1Click:Connect(function()
+    _fr.Visible = false
+    isOpen = false
+end)
+
+print("🎵 Full Music GUI Script Loaded Successfully!")
